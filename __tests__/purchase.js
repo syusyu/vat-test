@@ -14,46 +14,16 @@ const frontDBConnStr = `DATABASE=${frontDB.db_name};HOSTNAME=${frontDB.db_host};
 
 let page;
 
-// const connectBackDB = async () => {
-//     const sql = 'SELECT * FROM VAT_DIVISION_HISTORY';
-//     await doConnect(connectStr, sql).then(data => {
-//         testConditions = data;
-//     }).catch(err => {
-//         console.debug(err);
-//     })
-// };
-
-// const doConnect = async (connectStr, sql) => {
-//     return new Promise((resolve, reject) => {
-//         ibm_db.open(connectStr, (err, conn) => {
-//             if (err) {
-//                 reject(err);
-//             }
-//             let result;
-//             conn.query(sql, (err, data) => {
-//                 if (err) {
-//                     reject(err);
-//                 }
-//                 result = data;
-//             });
-//             conn.close(() => {
-//                 console.debug(`Connection is closed. ${connectStr}`)
-//                 resolve(result);
-//             });
-//         });
-//     });
-// };
 
 const connectDB = async (connectStr, proc) => {
     return new Promise((resolve, reject) => {
-        ibm_db.open(connectStr, (err, conn) => {
+        ibm_db.open(connectStr, async (err, conn) => {
             if (err) {
-                console.debug('#########open-error')
                 reject(err);
             }
-            proc(resolve, reject, conn);
+            await proc(resolve, reject, conn);
             conn.close(() => {
-                console.debug(`Connection is closed. ${connectStr}`)
+                // console.debug(`Connection is closed. ${connectStr}`)
             });
         });
     });
@@ -66,6 +36,7 @@ const prepare = async (testCase) => {
             if (err) {
                 reject(err);
             } else {
+                console.debug('prepare.query!!!!!')
                 resolve();
             }
         });
@@ -78,6 +49,7 @@ const fetchOrderHead = async (testCase, orderNo) => {
             if (err) {
                 reject(err);
             } else {
+                console.debug('fetchOrderHead.query!!!!!')
                 resolve(data);
             }
         });
@@ -88,6 +60,27 @@ const fetchOrderHead = async (testCase, orderNo) => {
 let testCases = [
     {
         'title': 'case.1-A',
+        'condition': {
+            'taxAppKb': 0, 'taxFrKb': 0, 'discTgKb': 0, 'taxTgKb': 0,
+            'items': [
+                {'cmId': 104, 'siPrice': 3240, 'snPrice': 2945, 'qty': 3},
+                {'cmId': 48, 'siPrice': 1000, 'snPrice': 909, 'qty': 2},
+            ],
+        },
+        'expectation': {
+            'payGk': 10748, 'payGkNt': 9771, 'payTax': 977, 'sumGk': 11720, 'sumGkNt': 10653, 'sumDisc': 972,
+            'items': {
+                '104': {
+                    'discountedBuyPrice': 8748, 'discountedBuyNprice': 7953, 'sumDisc': 972,
+                },
+                '48': {
+                    'discountedBuyPrice': 2000, 'discountedBuyNprice': 1848, 'sumDisc': 0,
+                },
+            }
+        }
+    },
+    {
+        'title': 'case.1-B',
         'condition': {
             'taxAppKb': 1, 'taxFrKb': 0, 'discTgKb': 0, 'taxTgKb': 0,
             'items': [
@@ -109,21 +102,27 @@ let testCases = [
     }
     ];
 
-// const topPageSelector = '#mainslider > .wideslider_base > .wideslider_wrap > ul.mainList';
-const topPageSelector = '#Main';
-
-const expectTopPage = async () => {
-    await page.waitForSelector(topPageSelector);
-
+const pageSelector = '#Main';
+const expectPageShown = async () => {
+    await page.waitForSelector(pageSelector);
     const existsTopImages = await page.evaluate(topPageSelector => {
         return document.querySelector(topPageSelector).children.length > 0;
-    }, topPageSelector);
+    }, pageSelector);
     expect(existsTopImages).toEqual(true);
 };
 
+const getOrderNo = async () =>{
+    // const pageSelector = '';
+    // const orderNo = await page.evaluate(topPageSelector => {
+    //     return document.querySelector(topPageSelector).value;
+    // }, pageSelector);
+    // return orderNo;
+    return '2017-12-000029';
+}
+
+
 describe('Execute all test cases', () => {
     beforeAll(async () => {
-        console.debug('Before All started...')
         page = await global.__BROWSER__.newPage();
         await page.setRequestInterception(true);
         page.on("request", request => {
@@ -137,44 +136,32 @@ describe('Execute all test cases', () => {
     }, preparationTimeout);
 
     afterAll(async () => {
-        console.debug('After All started...')
         await page.close();
     });
 
     for (const testCase of testCases) {
         describe(testCase.title, async () => {
             beforeEach(async () => {
-                console.debug('Before Each started...')
                 await prepare(testCase);
-                console.debug('Before Each ended...')
             });
-            // test('operation', async () => {
-            //     await page.goto(rootUrl + 'Index');
-            //     await expectTopPage();
-            // });
-            test(testCase.title, async () => {
-                const orderHead = await fetchOrderHead(testCase, '2017-12-000029');
-                await expect('3240').toEqual(orderHead['SUM_GK']);
+            test('operation', async () => {
+                console.debug('Do testing started...')
+                await page.goto(rootUrl + 'Index');
+                await expectPageShown();
+                await page.goto(rootUrl + 'item/0101-0');
+                await expectPageShown();
+                console.debug('Do testing ended...')
             });
             afterEach(async () => {
-                console.debug('After Each started...')
             });
+        });
+        test('evaluate', async () => {
+            const orderHead = await fetchOrderHead(testCase, await getOrderNo());
+            await expect('3240').toEqual(orderHead['SUM_GK']);
+            console.debug('evaluation dne!')
         });
     }
 
-    xdescribe('dummy', () => {
-        it('Dummy', async () => {
-            console.debug('Dummy test started.');
-            await expect(true).toEqual(true);
-        }, eachTimeout);
-    }, 1000);
-
-    xdescribe('dummy', () => {
-        it('Dummy', async () => {
-            console.debug('Dummy test started.');
-            await expect(true).toEqual(true);
-        }, eachTimeout);
-    }, 1000);
 
     xdescribe(
         'Basic flow',
