@@ -3,16 +3,19 @@ const config = require('config');
 const ibm_db = require('ibm_db');
 const backDB = require('../config/db_back_setting');
 const frontDB = require('../config/db_front_setting');
+const testFile = require('../test-cases/front_purchase')
 
 const preparationTimeout = 20000;
 const eachTimeout = 10000;
 // const domain = '54.248.105.196';
-const domain = '52.197.135.108';
+const domain = 'www.worksap.co.jp';
 const rootUrl = 'https://' + domain + '/';
 const backDBConnStr = `DATABASE=${backDB.db_name};HOSTNAME=${backDB.db_host};UID=${backDB.db_username};PWD=${backDB.db_password};PORT=${backDB.db_port};PROTOCOL=TCPIP`;
 const frontDBConnStr = `DATABASE=${frontDB.db_name};HOSTNAME=${frontDB.db_host};UID=${frontDB.db_username};PWD=${frontDB.db_password};PORT=${frontDB.db_port};PROTOCOL=TCPIP`;
+const testCases = testFile.testCases;
 
 let page;
+
 
 
 const connectDB = async (connectStr, proc) => {
@@ -31,13 +34,11 @@ const connectDB = async (connectStr, proc) => {
 
 const prepare = async (testCase) => {
     await connectDB(backDBConnStr, async (resolve, reject, conn) => {
-        // conn.query(`update ec_contr set tax_app_kb = ${testCase['condition']['taxAppKb']} where sp_cd = 'wapD'`, (err, data) => {
-        conn.query(`select * from ec_contr where sp_cd = 'wapD'`, (err, data) => {
+        conn.query(`update ec_contr set tax_app_kb = ${testCase['condition']['taxAppKb']} where sp_cd = 'wapD'`, (err, data) => {
             if (err) {
                 reject(err);
             } else {
-                console.debug('prepare.query!!!!!')
-                resolve();
+                resolve(data);
             }
         });
     });
@@ -49,7 +50,6 @@ const fetchOrderHead = async (testCase, orderNo) => {
             if (err) {
                 reject(err);
             } else {
-                console.debug('fetchOrderHead.query!!!!!')
                 resolve(data);
             }
         });
@@ -57,52 +57,8 @@ const fetchOrderHead = async (testCase, orderNo) => {
     return result[0];
 };
 
-let testCases = [
-    {
-        'title': 'case.1-A',
-        'condition': {
-            'taxAppKb': 0, 'taxFrKb': 0, 'discTgKb': 0, 'taxTgKb': 0,
-            'items': [
-                {'cmId': 104, 'siPrice': 3240, 'snPrice': 2945, 'qty': 3},
-                {'cmId': 48, 'siPrice': 1000, 'snPrice': 909, 'qty': 2},
-            ],
-        },
-        'expectation': {
-            'payGk': 10748, 'payGkNt': 9771, 'payTax': 977, 'sumGk': 11720, 'sumGkNt': 10653, 'sumDisc': 972,
-            'items': {
-                '104': {
-                    'discountedBuyPrice': 8748, 'discountedBuyNprice': 7953, 'sumDisc': 972,
-                },
-                '48': {
-                    'discountedBuyPrice': 2000, 'discountedBuyNprice': 1848, 'sumDisc': 0,
-                },
-            }
-        }
-    },
-    {
-        'title': 'case.1-B',
-        'condition': {
-            'taxAppKb': 1, 'taxFrKb': 0, 'discTgKb': 0, 'taxTgKb': 0,
-            'items': [
-                {'cmId': 104, 'siPrice': 3240, 'snPrice': 2945, 'qty': 3},
-                {'cmId': 48, 'siPrice': 1000, 'snPrice': 909, 'qty': 2},
-            ],
-        },
-        'expectation': {
-            'payGk': 10748, 'payGkNt': 9771, 'payTax': 977, 'sumGk': 11720, 'sumGkNt': 10653, 'sumDisc': 972,
-            'items': {
-                '104': {
-                    'discountedBuyPrice': 8748, 'discountedBuyNprice': 7953, 'sumDisc': 972,
-                },
-                '48': {
-                    'discountedBuyPrice': 2000, 'discountedBuyNprice': 1848, 'sumDisc': 0,
-                },
-            }
-        }
-    }
-    ];
 
-const pageSelector = '#Main';
+const pageSelector = '#content';
 const expectPageShown = async () => {
     await page.waitForSelector(pageSelector);
     const existsTopImages = await page.evaluate(topPageSelector => {
@@ -145,20 +101,15 @@ describe('Execute all test cases', () => {
                 await prepare(testCase);
             });
             test('operation', async () => {
-                console.debug('Do testing started...')
                 await page.goto(rootUrl + 'Index');
                 await expectPageShown();
                 await page.goto(rootUrl + 'item/0101-0');
                 await expectPageShown();
-                console.debug('Do testing ended...')
-            });
-            afterEach(async () => {
             });
         });
         test('evaluate', async () => {
             const orderHead = await fetchOrderHead(testCase, await getOrderNo());
             await expect('3240').toEqual(orderHead['SUM_GK']);
-            console.debug('evaluation dne!')
         });
     }
 
