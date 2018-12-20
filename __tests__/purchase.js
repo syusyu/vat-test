@@ -6,83 +6,90 @@ const frontDB = require('../config/db_front_setting');
 
 const preparationTimeout = 20000;
 const eachTimeout = 10000;
-const domain = '54.248.105.196';
+// const domain = '54.248.105.196';
+const domain = '52.197.135.108';
 const rootUrl = 'https://' + domain + '/';
 const backDBConnStr = `DATABASE=${backDB.db_name};HOSTNAME=${backDB.db_host};UID=${backDB.db_username};PWD=${backDB.db_password};PORT=${backDB.db_port};PROTOCOL=TCPIP`;
 const frontDBConnStr = `DATABASE=${frontDB.db_name};HOSTNAME=${frontDB.db_host};UID=${frontDB.db_username};PWD=${frontDB.db_password};PORT=${frontDB.db_port};PROTOCOL=TCPIP`;
 
 let page;
-let testConditions;
 
-const connectBackDB = async () => {
-    const sql = 'SELECT * FROM VAT_DIVISION_HISTORY';
-    await doConnect(connectStr, sql).then(data => {
-        testConditions = data;
-    }).catch(err => {
-        console.debug(err);
-    })
-};
+// const connectBackDB = async () => {
+//     const sql = 'SELECT * FROM VAT_DIVISION_HISTORY';
+//     await doConnect(connectStr, sql).then(data => {
+//         testConditions = data;
+//     }).catch(err => {
+//         console.debug(err);
+//     })
+// };
 
-const doConnect = async (connectStr, sql) => {
-    return new Promise((resolve, reject) => {
-        ibm_db.open(connectStr, (err, conn) => {
-            if (err) {
-                reject(err);
-            }
-            let result;
-            conn.query(sql, (err, data) => {
-                if (err) {
-                    reject(err);
-                }
-                result = data;
-            });
-            conn.close(() => {
-                console.debug(`Connection is closed. ${connectStr}`)
-                resolve(result);
-            });
-        });
-    });
-};
+// const doConnect = async (connectStr, sql) => {
+//     return new Promise((resolve, reject) => {
+//         ibm_db.open(connectStr, (err, conn) => {
+//             if (err) {
+//                 reject(err);
+//             }
+//             let result;
+//             conn.query(sql, (err, data) => {
+//                 if (err) {
+//                     reject(err);
+//                 }
+//                 result = data;
+//             });
+//             conn.close(() => {
+//                 console.debug(`Connection is closed. ${connectStr}`)
+//                 resolve(result);
+//             });
+//         });
+//     });
+// };
 
 const connectDB = async (connectStr, proc) => {
     return new Promise((resolve, reject) => {
         ibm_db.open(connectStr, (err, conn) => {
             if (err) {
+                console.debug('#########open-error')
                 reject(err);
             }
-            let result;
             proc(resolve, reject, conn);
             conn.close(() => {
                 console.debug(`Connection is closed. ${connectStr}`)
-                resolve(result);
             });
         });
     });
 };
 
 const prepare = async (testCase) => {
-    await connectDB(backDBConnStr, (resolve, reject, conn) => {
-        conn.query(`update ec_contr set tax_app_kb = ${testCase['condition']['taxAppKb']} where sp_cd = 'wapD'`, (err, data) => {
+    await connectDB(backDBConnStr, async (resolve, reject, conn) => {
+        // conn.query(`update ec_contr set tax_app_kb = ${testCase['condition']['taxAppKb']} where sp_cd = 'wapD'`, (err, data) => {
+        conn.query(`select * from ec_contr where sp_cd = 'wapD'`, (err, data) => {
             if (err) {
                 reject(err);
+            } else {
+                resolve();
             }
-            conn.query(`select tax_app_kb from ec_contr where sp_cd = 'wapD`, (err, data) => {
-                resolve(data);
-            });
         });
-    }).then(data => {
-        console.debug(JSON.stringify(data));
-        // console.debug(`taxAppKb=${data.taxAppKb}`);
-    }).catch(err => {
-        console.debug(err);
     });
+};
+
+const fetchOrderHead = async (testCase, orderNo) => {
+    const result = await connectDB(backDBConnStr, async (resolve, reject, conn) => {
+        conn.query(`SELECT sum_gk, sum_gk_nt, sum_disc,  pay_gk, pay_gk_nt, pay_tax FROM ORDER_HEAD WHERE order_no = '${orderNo}' AND sp_cd = 'wapD'`, (err, data) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(data);
+            }
+        });
+    });
+    return result[0];
 };
 
 let testCases = [
     {
         'title': 'case.1-A',
         'condition': {
-            'taxAppKb': 0, 'taxFrKb': 0, 'discTgKb': 0, 'taxTgKb': 0,
+            'taxAppKb': 1, 'taxFrKb': 0, 'discTgKb': 0, 'taxTgKb': 0,
             'items': [
                 {'cmId': 104, 'siPrice': 3240, 'snPrice': 2945, 'qty': 3},
                 {'cmId': 48, 'siPrice': 1000, 'snPrice': 909, 'qty': 2},
@@ -101,6 +108,18 @@ let testCases = [
         }
     }
     ];
+
+// const topPageSelector = '#mainslider > .wideslider_base > .wideslider_wrap > ul.mainList';
+const topPageSelector = '#Main';
+
+const expectTopPage = async () => {
+    await page.waitForSelector(topPageSelector);
+
+    const existsTopImages = await page.evaluate(topPageSelector => {
+        return document.querySelector(topPageSelector).children.length > 0;
+    }, topPageSelector);
+    expect(existsTopImages).toEqual(true);
+};
 
 describe('Execute all test cases', () => {
     beforeAll(async () => {
@@ -129,9 +148,13 @@ describe('Execute all test cases', () => {
                 await prepare(testCase);
                 console.debug('Before Each ended...')
             });
+            // test('operation', async () => {
+            //     await page.goto(rootUrl + 'Index');
+            //     await expectTopPage();
+            // });
             test(testCase.title, async () => {
-                console.debug('Do test case...')
-                await expect(true).toEqual(true);
+                const orderHead = await fetchOrderHead(testCase, '2017-12-000029');
+                await expect('3240').toEqual(orderHead['SUM_GK']);
             });
             afterEach(async () => {
                 console.debug('After Each started...')
