@@ -63,7 +63,7 @@ const fetchOrderHead = async (orderNo) => {
 };
 
 const fetchOrderItems = async (orderSeqNo) => {
-    return await connectDB(backDBConnStr, async (resolve, reject, conn) => {
+    const orderItems = await connectDB(backDBConnStr, async (resolve, reject, conn) => {
         const sql = `SELECT cm_id, vat_division, vat_rate, order_qty, DISC_GK, DISCOUNTED_BUY_PRICE, DISCOUNTED_BUY_NPRICE
               FROM ORDER_ITEM WHERE order_seq_no in ( ${orderSeqNo} ) AND discounted_buy_price > 0`;
         conn.query(sql, (err, data) => {
@@ -74,6 +74,12 @@ const fetchOrderItems = async (orderSeqNo) => {
             }
         });
     });
+    const orderItemMap =  orderItems.reduce((prev, current) => {
+        Object.keys()
+        return (prev[current['CM_ID']] = current, prev)
+    }, {});
+    console.debug(JSON.stringify(orderItemMap));
+    return orderItemMap;
 };
 
 
@@ -121,7 +127,7 @@ describe('Execute all test cases', () => {
                 await page.goto(rootUrl + 'products/lineup/HR_Suite/');
                 await expectPageShown();
             }, operationTimeout);
-            test('operation', async () => {
+            xtest('operation', async () => {
                 //Selector
                 const headerCartLinkSelector = 'a[href*="Cart"]';
                 const loginTopLinkSelector = 'a[href*="LoginTop"]';
@@ -187,12 +193,14 @@ describe('Execute all test cases', () => {
                 // // await expectCartThankyou();
             }, operationTimeout);
         });
-        xtest('evaluate', async () => {
+        test('evaluate', async () => {
             const orderHead = await fetchOrderHead(await getOrderNo());
             await expect(testCase['expectation']['sumGk']).toEqual(orderHead['SUM_GK']);
             const orderItems = await fetchOrderItems(orderHead['ORDER_SEQ_NO']);
-            for (const orderItem of orderItems) {
-                console.debug(`price=${orderItem['DISCOUNTED_BUY_PRICE']}`);
+            const expectedItems = testCase['expectation']['items'];
+            for (const cmId of Object.keys(orderItems)) {
+                console.debug(`price=${orderItems[cmId]['DISCOUNTED_BUY_PRICE']}`);
+                await expect(expectedItems[cmId]['discountedBuyPrice']).toEqual(orderItems[cmId]['DISCOUNTED_BUY_PRICE']);
             }
         });
     }

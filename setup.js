@@ -10,7 +10,7 @@ module.exports = async function() {
     console.log('Setup Puppeteer');
     const browser = await puppeteer.launch({
         ignoreHTTPSErrors: true,
-        headless: false,
+        headless: true,
         args: [
             '--ignore-certificate-errors',
             '--ignore-certificate-errors-spki-list '
