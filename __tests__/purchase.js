@@ -74,9 +74,9 @@ const fetchOrderItems = async (orderSeqNo) => {
             }
         });
     });
-    const orderItemMap =  orderItems.reduce((prev, current) => {
-        Object.keys()
-        return (prev[current['CM_ID']] = current, prev)
+    const orderItemMap =  orderItems.reduce((result, orderItem) => {
+        const numOrderItem = Object.keys(orderItem).reduce((obj, key) => (obj[key] = Number.parseInt(orderItem[key]), obj), {});
+        return (result[orderItem['CM_ID']] = numOrderItem, result);
     }, {});
     console.debug(JSON.stringify(orderItemMap));
     return orderItemMap;
