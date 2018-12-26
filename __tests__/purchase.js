@@ -9,9 +9,10 @@ const allTimeout = 120000;
 const preparationTimeout = 20000;
 const eachTimeout = 10000;
 const operationTimeout = 90000;
-const domain = '52.194.18.166/wapD';
+const domain = '13.250.213.75';
+// const domain = '52.194.18.166/wapD';
 // const domain = 'okabe-server';
-const rootUrl = 'http://' + domain + '/';
+const rootUrl = 'https://' + domain + '/';
 const backDBConnStr = `DATABASE=${backDB.db_name};HOSTNAME=${backDB.db_host};UID=${backDB.db_username};PWD=${backDB.db_password};PORT=${backDB.db_port};PROTOCOL=TCPIP`;
 const frontDBConnStr = `DATABASE=${frontDB.db_name};HOSTNAME=${frontDB.db_host};UID=${frontDB.db_username};PWD=${frontDB.db_password};PORT=${frontDB.db_port};PROTOCOL=TCPIP`;
 const testCases = testFile.frontPurchase;
@@ -121,13 +122,7 @@ describe('Execute all test cases', () => {
             beforeEach(async () => {
                 // await prepare(testCase);
             });
-            xtest('operation', async () => {
-                await page.goto(rootUrl);
-                await expectPageShown();
-                await page.goto(rootUrl + 'products/lineup/HR_Suite/');
-                await expectPageShown();
-            }, operationTimeout);
-            xtest('operation', async () => {
+            test('operation', async () => {
                 //Selector
                 const headerCartLinkSelector = 'a[href*="Cart"]';
                 const loginTopLinkSelector = 'a[href*="LoginTop"]';
@@ -144,6 +139,10 @@ describe('Execute all test cases', () => {
                 const cartPaymentCodOptionSelector = 'input[name="paymentCodOption"][value="1"]';
                 const cartPaymentAgreeSelector = '#agree';
                 const cartConfirmTotalPriceSelector = 'p.totalprice';
+                const expectCartThankyou = async () => {
+                    const thankyouText = await page.$eval("#EC_cart", e => e.innerHTML);
+                    expect(thankyouText).toContain('ご注文ありがとうございました');
+                };
 
                 //Login
                 await page.goto(rootUrl + 'LoginTop');
@@ -155,11 +154,11 @@ describe('Execute all test cases', () => {
                 await page.waitForNavigation();
 
                 //ItemDetail
-                // for (const item of testCase['condition']['items']) {
-                //     await page.goto(`${rootUrl}ItemDetail?cmId=${item['cmId']}`);
-                //     await page.waitForSelector(cartBtnSelector);
-                //     await page.click(cartBtnSelector);
-                // }
+                for (const item of testCase['condition']['items']) {
+                    await page.goto(`${rootUrl}ItemDetail?cmId=${item['cmId']}`);
+                    await page.waitForSelector(cartBtnSelector);
+                    await page.click(cartBtnSelector);
+                }
 
                 //Cart
                 await page.goto(rootUrl + 'Cart');
@@ -193,13 +192,12 @@ describe('Execute all test cases', () => {
                 // // await expectCartThankyou();
             }, operationTimeout);
         });
-        test('evaluate', async () => {
+        xtest('evaluate', async () => {
             const orderHead = await fetchOrderHead(await getOrderNo());
             await expect(testCase['expectation']['sumGk']).toEqual(orderHead['SUM_GK']);
             const orderItems = await fetchOrderItems(orderHead['ORDER_SEQ_NO']);
             const expectedItems = testCase['expectation']['items'];
             for (const cmId of Object.keys(orderItems)) {
-                console.debug(`price=${orderItems[cmId]['DISCOUNTED_BUY_PRICE']}`);
                 await expect(expectedItems[cmId]['discountedBuyPrice']).toEqual(orderItems[cmId]['DISCOUNTED_BUY_PRICE']);
             }
         });
