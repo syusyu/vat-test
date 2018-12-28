@@ -35,10 +35,14 @@ const connectDB = async (connectStr, proc) => {
     });
 };
 
+const settingSql = (testCase) => `update ec_contr set tax_app_kb = ${testCase['condition']['taxAppKb']} where sp_cd = 'wapD'`;
+
 const prepare = async (testCase) => {
     await connectDB(backDBConnStr, async (resolve, reject, conn) => {
-        const sql = `update ec_contr set tax_app_kb = ${testCase['condition']['taxAppKb']} where sp_cd = 'wapD'`;
-        conn.query(sql, (err, data) => err ? reject(err) : resolve(data));
+        conn.query(settingSql(testCase), (err, data) => err ? reject(err) : resolve(data));
+    });
+    await connectDB(frontDBConnStr, async (resolve, reject, conn) => {
+        conn.query(settingSql(testCase), (err, data) => err ? reject(err) : resolve(data));
     });
 };
 
@@ -66,8 +70,7 @@ const fetchOrderItems = async (orderSeqNo) => {
 
 
 const getOrderNo = async () =>{
-    let val = await page.$eval("table > tbody > tr > td", e => e.innerHTML);
-    return val.replace(/\[|\]/g, '');
+    return await page.$eval("table > tbody > tr > td", e => e.innerHTML).replace(/\[|\]/g, '');
 };
 
 
@@ -111,20 +114,28 @@ describe('Execute all test cases', () => {
                 //ItemDetail
                 for (const item of testCase['condition']['items']) {
                     await page.goto(`${rootUrl}ItemDetail?cmId=${item['cmId']}`);
+                    // await page.waitForNavigation();
                     await page.waitForSelector(cartBtnSelector);
                     await page.click(cartBtnSelector);
                 }
 
                 //Cart
                 await page.goto(rootUrl + 'Cart');
+                await page.waitFor(1000);
+                let index = 1;
+                for (const item of testCase['condition']['items']) {
+                    const name = `#item_count_0_${(index++)}_wapD_normal`;
+                    await page.evaluate( () => document.getElementById(name).value = "");
+                    await page.type(name, item['qty'].toString());
+                }
+                await page.waitFor(5000);
                 await page.waitForSelector(checkoutBtnSelector);
                 await page.click(checkoutBtnSelector);
                 await page.waitForNavigation();
                 // await page.waitFor(1000);
 
                 const isMember = await page.evaluate(selector => {
-                    const node = document.querySelector(selector);
-                    return !node;
+                    !document.querySelector(selector);
                 }, loginBtnSelector);
 
                 //Login
@@ -135,8 +146,12 @@ describe('Execute all test cases', () => {
                     await page.type('input[name="password"]', config.purchase.password);
                     await page.click(loginBtnSelector);
                     await page.waitForNavigation();
-                    // await page.waitFor(1000);
-                    // await page.waitForSelector(checkoutBtnSelector);
+                    let index = 1;
+                    for (const item of testCase['condition']['items']) {
+                        const name = `#item_count_0_${(index++)}_wapD_normal`;
+                        await page.evaluate( () => document.getElementById(name).value = "");
+                        await page.type(name, item['qty'].toString());
+                    }
                     await page.click(checkoutBtnSelector);
                 }
 
@@ -170,10 +185,9 @@ describe('Execute all test cases', () => {
 
                 //Thankyou
                 await page.waitForNavigation();
-
             }, operationTimeout);
         });
-        test('evaluate', async () => {
+        xtest('evaluate', async () => {
             const orderHead = await fetchOrderHead(await getOrderNo());
             await expect(testCase['expectation']['sumGk']).toEqual(orderHead['SUM_GK']);
             const orderItems = await fetchOrderItems(orderHead['ORDER_SEQ_NO']);
