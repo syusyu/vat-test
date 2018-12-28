@@ -5,10 +5,10 @@ const backDB = require('../config/db_back');
 const frontDB = require('../config/db_front');
 const testFile = require('../config/testcase')
 
-const allTimeout = 120000;
+const allTimeout = 240000;
 const preparationTimeout = 20000;
 const eachTimeout = 10000;
-const operationTimeout = 100000;
+const operationTimeout = 180000;
 // const domain = '52.194.18.166/wapD';
 const domain = 'okabe-server/wapD';
 const rootUrl = 'http://' + domain + '/';
@@ -66,15 +66,9 @@ const fetchOrderItems = async (orderSeqNo) => {
 
 
 const getOrderNo = async () =>{
-    // const thankyouText = await page.$eval("table > tbody > tr > td", e => e.innerHTML);
-    // expect(thankyouText).toContain('ご注文ありがとうございました');
-    // const pageSelector = '';
-    const orderNo = await page.evaluate(selector => {
-        return document.querySelector(selector).innerHTML;
-    }, "table > tbody > tr:nth-child(1) > td:nth-child(1)");
-    return orderNo;
-    // return '2017-12-000001';
-}
+    let val = await page.$eval("table > tbody > tr > td", e => e.innerHTML);
+    return val.replace(/\[|\]/g, '');
+};
 
 
 describe('Execute all test cases', () => {
@@ -179,7 +173,7 @@ describe('Execute all test cases', () => {
 
             }, operationTimeout);
         });
-        xtest('evaluate', async () => {
+        test('evaluate', async () => {
             const orderHead = await fetchOrderHead(await getOrderNo());
             await expect(testCase['expectation']['sumGk']).toEqual(orderHead['SUM_GK']);
             const orderItems = await fetchOrderItems(orderHead['ORDER_SEQ_NO']);
