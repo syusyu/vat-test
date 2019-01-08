@@ -5,4 +5,5 @@ module.exports = {
   modulePathIgnorePatterns: [
     "output"
   ],
+  setupTestFrameworkScriptFile: './jest.setup.js',
 };
