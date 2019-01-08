@@ -1,1 +1,1 @@
-jest.setTimeout(600000)
+jest.setTimeout(600 * 1000) //600s = 10m
