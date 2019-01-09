@@ -6,7 +6,8 @@ const testFile = require('../config/testcase');
 const allTimeout = 600 * 1000; // Wait 600s = 10m
 const operationTimeout = 60 * 1000; // Wit 60s = 1m
 
-const domain = '52.194.18.166/wapD';
+const spCd = 'bpApp'
+const domain = `52.194.18.166/${spCd}`;
 // const domain = 'okabe-server/wapD';
 const rootUrl = 'http://' + domain + '/';
 
@@ -26,6 +27,7 @@ const cartNextBtnOfPaymentSelector = 'a[data-action-url$="/cart/paymentchk"]';
 const cartNextBtnOfConfirmSelector = 'a[data-action-url$="/cart/thankyou"]';
 const cartPaymentCodSelector = '#payMethodKb_CASH_ON_DELIVERY';
 const cartPaymentCodOptionSelector = 'input[name="paymentCodOption"][value="1"]';
+const cartPaymentAgreeSelector = '#agree';
 
 describe('Execute all test cases', () => {
 
@@ -46,9 +48,9 @@ describe('Execute all test cases', () => {
 
             beforeEach(async () => {
                 //Change EcContr
-                await dbutil.prepareSetting(testCase);
+                await dbutil.prepareSetting(testCase, spCd);
 
-                //Clear front cache
+                // Clear front cache
                 await page.goto(`${rootUrl}system/allCacheInit`);
                 await waitMoment();
             });
@@ -64,7 +66,8 @@ describe('Execute all test cases', () => {
                 //Change item quantity
                 await waitMoment();
                 await operateChangeItemCount(testCase);
-                await page.waitForSelector(checkoutBtnSelector);
+                await waitMoment();
+                // await page.waitForSelector(checkoutBtnSelector);
                 await page.click(checkoutBtnSelector);
 
                 //Login (only for guest user)
@@ -83,6 +86,7 @@ describe('Execute all test cases', () => {
                 await waitMoment();
                 await page.click(cartPaymentCodSelector);
                 await page.click(cartPaymentCodOptionSelector);
+                await page.click(cartPaymentAgreeSelector);
                 await page.click(cartNextBtnOfPaymentSelector);
 
                 //Confirm
@@ -96,7 +100,7 @@ describe('Execute all test cases', () => {
 
         test('Evaluate the tax calculation', async () => {
             //Evaluate OrderHead
-            const orderHead = await dbutil.fetchOrderHead(await getOrderNo());
+            const orderHead = await dbutil.fetchOrderHead(await getOrderNo(), spCd);
             await expect(testCase['expectation']['payGk']).toEqual(orderHead['PAY_GK']);
             await expect(testCase['expectation']['payGkNt']).toEqual(orderHead['PAY_GK_NT']);
             await expect(testCase['expectation']['payTax']).toEqual(orderHead['PAY_TAX']);
@@ -124,7 +128,7 @@ const operatePutItemToCart = async (testCase) => {
     for (const item of testCase['condition']['items']) {
         //Show ItemDetail page
         await page.goto(`${rootUrl}ItemDetail?cmId=${item['cmId']}`);
-        await page.waitForSelector(cartBtnSelector);
+        await waitMoment();
 
         //Put the item to Cart
         await page.click(cartBtnSelector);
@@ -135,7 +139,7 @@ const operateChangeItemCount = async (testCase) => {
     let index = 1;
     for (const item of testCase['condition']['items']) {
         //Change item quantity
-        const itemCntTxt = await page.$(`#item_count_0_${(index++)}_wapD_normal`);
+        const itemCntTxt = await page.$(`#item_count_0_${(index++)}_${spCd}_normal`);
         await itemCntTxt.click();
         await itemCntTxt.focus();
         await itemCntTxt.click({clickCount: 3});
@@ -144,6 +148,7 @@ const operateChangeItemCount = async (testCase) => {
 
         //Put change quantity button
         await page.click(cartChangeCountBtnSelector);
+        await waitMoment();
     }
 };
 
@@ -155,7 +160,7 @@ const operateLogin = async (testCase) => {
     if (!isMember) {
         //If guest user, show the login top page
         await page.goto(rootUrl + 'LoginTop');
-        await page.waitForSelector(loginBtnSelector);
+        await waitMoment();
 
         //Input userId and password
         await page.type('input[name="userId"]', config.purchase.email);
