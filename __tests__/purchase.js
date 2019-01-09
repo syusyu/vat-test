@@ -3,13 +3,11 @@ const config = require('config');
 const testFile = require('../config/testcase');
 
 
-const allTimeout = 600 * 1000; // Wait 600s = 10m
-const operationTimeout = 60 * 1000; // Wit 60s = 1m
+const allTimeout = global.TIMEOUT.all;
+const operationTimeout = global.TIMEOUT.operation;
 
-const spCd = 'bpApp'
-const domain = `52.194.18.166/${spCd}`;
-// const domain = 'okabe-server/wapD';
-const rootUrl = 'http://' + domain + '/';
+const spCd = config.purchase.spCd;
+const rootUrl = 'http://' + config.purchase.domain + `/${spCd}/`;
 
 const testCases = testFile.frontPurchase;
 
@@ -33,10 +31,12 @@ describe('Execute all test cases', () => {
 
     beforeAll(async () => {
         page = await global.__BROWSER__.newPage();
+        /** For SSL **/
         // await page.setRequestInterception(true);
         // page.on("request", request => {
         //     request.continue();
         // });
+        /** For SSL **/
     });
 
     afterAll(async () => {
@@ -44,10 +44,10 @@ describe('Execute all test cases', () => {
     });
 
     for (const testCase of testCases) {
-        describe(testCase.title, async () => {
+        describe(`operation - ${testCase.title}`, async () => {
 
             beforeEach(async () => {
-                //Change EcContr
+                /** Change EcContr **/
                 await dbutil.prepareSetting(testCase, spCd);
 
                 // Clear front cache
@@ -98,25 +98,28 @@ describe('Execute all test cases', () => {
             });
         }, operationTimeout);
 
-        test('Evaluate the tax calculation', async () => {
+        test(`Evaluate - ${testCase.title}`, async () => {
+            const orderNo = await getOrderNo();
+            console.log(`testCase=${testCase.title}, orderNo=${orderNo}`);
+
             //Evaluate OrderHead
-            const orderHead = await dbutil.fetchOrderHead(await getOrderNo(), spCd);
-            await expect(testCase['expectation']['payGk']).toEqual(orderHead['PAY_GK']);
-            await expect(testCase['expectation']['payGkNt']).toEqual(orderHead['PAY_GK_NT']);
-            await expect(testCase['expectation']['payTax']).toEqual(orderHead['PAY_TAX']);
-            await expect(testCase['expectation']['sumGk']).toEqual(orderHead['SUM_GK']);
-            await expect(testCase['expectation']['sumGkNt']).toEqual(orderHead['SUM_GK_NT']);
-            await expect(testCase['expectation']['sumDisc']).toEqual(orderHead['SUM_DISC']);
+            const orderHead = await dbutil.fetchOrderHead(orderNo, spCd);
+            await expect(orderHead['PAY_GK']   ).toEqual(testCase['expectation']['payGk']);
+            await expect(orderHead['PAY_GK_NT']).toEqual(testCase['expectation']['payGkNt']);
+            await expect(orderHead['PAY_TAX']  ).toEqual(testCase['expectation']['payTax']);
+            await expect(orderHead['SUM_GK']   ).toEqual(testCase['expectation']['sumGk']);
+            await expect(orderHead['SUM_GK_NT']).toEqual(testCase['expectation']['sumGkNt']);
+            await expect(orderHead['SUM_DISC'] ).toEqual(testCase['expectation']['sumDisc']);
 
             //Evaluate OrderItem
             const orderItems = await dbutil.fetchOrderItems(orderHead['ORDER_SEQ_NO']);
             for (const cmId of Object.keys(orderItems)) {
                 const expectedItem = testCase['expectation']['items'][cmId];
-                await expect(expectedItem['discountedBuyPrice']).toEqual(orderItems[cmId]['DISCOUNTED_BUY_PRICE']);
-                await expect(expectedItem['discountedBuyNprice']).toEqual(orderItems[cmId]['DISCOUNTED_BUY_NPRICE']);
-                await expect(expectedItem['discGk']).toEqual(orderItems[cmId]['DISC_GK']);
-                await expect(expectedItem['vatDivision']).toEqual(orderItems[cmId]['VAT_DIVISION']);
-                await expect(expectedItem['vatRate']).toEqual(orderItems[cmId]['VAT_RATE']);
+                await expect(orderItems[cmId]['DISCOUNTED_BUY_PRICE'] ).toEqual(expectedItem['discountedBuyPrice']);
+                await expect(orderItems[cmId]['DISCOUNTED_BUY_NPRICE']).toEqual(expectedItem['discountedBuyNprice']);
+                await expect(orderItems[cmId]['DISC_GK']                 ).toEqual(expectedItem['discGk']);
+                await expect(orderItems[cmId]['VAT_DIVISION']           ).toEqual(expectedItem['vatDivision']);
+                await expect(orderItems[cmId]['VAT_RATE']                ).toEqual(expectedItem['vatRate']);
             }
         });
     }

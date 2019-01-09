@@ -45,7 +45,7 @@ module.exports.prepareSetting = async (testCase, spCd) => {
         conn.query(settingSql(testCase, spCd), (err, data) => err ? reject(err) : resolve(data));
     });
     await connectDB(frontDBConnStr, async (resolve, reject, conn) => {
-        conn.query(settingSql(testCase), (err, data) => err ? reject(err) : resolve(data));
+        conn.query(settingSql(testCase, spCd), (err, data) => err ? reject(err) : resolve(data));
     });
 };
 
