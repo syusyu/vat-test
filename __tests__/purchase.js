@@ -14,6 +14,7 @@ const testCases = testFile.frontPurchase;
 let page;
 
 //Selector
+const loginTopLinkSelector = 'a[href$="LoginTop"]';
 const loginBtnSelector = 'a[data-action-url$="Login"]';
 const cartBtnSelector = 'img[src*="btn_buy"]';
 const cartChangeCountBtnSelector = 'a[data-action-url$="CartChangeCount"]';
@@ -44,18 +45,19 @@ describe('Execute all test cases', () => {
     });
 
     for (const testCase of testCases) {
-        describe(`operation - ${testCase.title}`, async () => {
+        describe(`Purchase in Normal-Cart-Flow - ${testCase.title}`, async () => {
 
             beforeEach(async () => {
-                /** Change EcContr **/
+                //Change EcContr
                 await dbutil.prepareSetting(testCase, spCd);
 
-                // Clear front cache
+                //Clear front cache
                 await page.goto(`${rootUrl}system/allCacheInit`);
                 await waitMoment();
             });
 
-            test('operation', async () => {
+            test('Operate browser', async () => {
+
                 //ItemDetail
                 await operatePutItemToCart(testCase);
 
@@ -67,7 +69,6 @@ describe('Execute all test cases', () => {
                 await waitMoment();
                 await operateChangeItemCount(testCase);
                 await waitMoment();
-                // await page.waitForSelector(checkoutBtnSelector);
                 await page.click(checkoutBtnSelector);
 
                 //Login (only for guest user)
@@ -143,6 +144,7 @@ const operateChangeItemCount = async (testCase) => {
     for (const item of testCase['condition']['items']) {
         //Change item quantity
         const itemCntTxt = await page.$(`#item_count_0_${(index++)}_${spCd}_normal`);
+        await waitLonger();
         await itemCntTxt.click();
         await itemCntTxt.focus();
         await itemCntTxt.click({clickCount: 3});
@@ -151,14 +153,14 @@ const operateChangeItemCount = async (testCase) => {
 
         //Put change quantity button
         await page.click(cartChangeCountBtnSelector);
-        await waitMoment();
+        await waitLonger();
     }
 };
 
 const operateLogin = async (testCase) => {
     const isMember = await page.evaluate(selector => {
         return !document.querySelector(selector);
-    }, loginBtnSelector);
+    }, loginTopLinkSelector);
 
     if (!isMember) {
         //If guest user, show the login top page
@@ -173,7 +175,7 @@ const operateLogin = async (testCase) => {
         await page.click(loginBtnSelector);
 
         //Show Cart top page
-        await waitMoment();
+        await waitLonger();
         await page.goto(rootUrl + 'Cart');
 
         //Change item quantity
@@ -199,8 +201,14 @@ const waitMoment = async () => {
     await page.waitFor(2 * 1000); // Wait 2s
 };
 
-const waitOrder = async () => {
+const waitLonger = async () => {
     // Actually here, page.waitForSelector(selector) or page.waitForNavigation() is better.
     // But those don't work so use page.waitFor as a workaround.
     await page.waitFor(10 * 1000); // Wait 10s
+};
+
+const waitOrder = async () => {
+    // Actually here, page.waitForSelector(selector) or page.waitForNavigation() is better.
+    // But those don't work so use page.waitFor as a workaround.
+    await page.waitFor(15 * 1000); // Wait 10s
 };
